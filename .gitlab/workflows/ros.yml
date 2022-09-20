@@ -1,0 +1,47 @@
+name: Windows
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    strategy:
+      matrix:
+        ros_distribution:
+          - foxy
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup ROS environment
+      uses: ros-tooling/setup-ros@v0.3
+      with:
+        required-ros-distributions: ${{ matrix.ros_distribution }}
+        
+    - name: Search packages in this repository
+      id: list_packages
+      run: |
+        echo ::set-output name=package_list::$(colcon list --names-only)
+      shell: bash
+
+    - name: Add clang path to $PATH env
+      shell: bash
+      if: runner.os == 'Windows'
+      run: echo "PATH=$PATH:C:\msys64\mingw64\bin" >> $GITHUB_ENV
+
+    - name: Echo package list
+      shell: bash
+      run: echo ${{ steps.list_packages.outputs.package_list }}
+
+    - name: Build and test
+      id: build
+      uses: ros-tooling/action-ros-ci@master
+      with:
+        package-name: ${{ steps.list_packages.outputs.package_list }}
+        target-ros2-distro: ${{ matrix.ros_distribution }}
